@@ -9,6 +9,7 @@ Copyright (C) 2017 by Dmitry Blinov <dblinov76 at gmail dot com>
 #if THERMOSTAT_SUPPORT
 
 #include <float.h>
+#include <limits.h>
 
 #include "ntp.h"
 #include "relay.h"
@@ -71,7 +72,7 @@ unsigned int  _thermostat_burn_month      = 0;
 
 struct temp_t {
   float temp;
-  unsigned long last_update = 0;
+  unsigned long last_update = INT_MIN;
   bool need_display_update = false;
 };
 temp_t _remote_temp;
@@ -79,7 +80,7 @@ temp_t _remote_temp;
 struct temp_range_t {
   int min = THERMOSTAT_TEMP_RANGE_MIN;
   int max = THERMOSTAT_TEMP_RANGE_MAX;
-  unsigned long last_update = 0;
+  unsigned long last_update = INT_MIN;
   unsigned long ask_time = 0;
   unsigned int  ask_interval = 0;
   bool need_display_update = true;
@@ -695,7 +696,7 @@ void display_remote_temp() {
   display.setColor(WHITE);
   display.setFont(ArialMT_Plain_16);
   display.setTextAlignment(TEXT_ALIGN_LEFT);
-  String temp_range_title = String("Remote   t");
+  String temp_range_title = String("Remote  t");
   display.drawString(0, 16, temp_range_title);
 
   String temp_range_vol = String("= ") + (_display_remote_temp_status ? String(_remote_temp.temp, 1) : String("?")) + "°";
@@ -712,7 +713,7 @@ void display_local_temp() {
   display.setFont(ArialMT_Plain_16);
   display.setTextAlignment(TEXT_ALIGN_LEFT);
 
-  String local_temp_title = String("Local    t");
+  String local_temp_title = String("Local      t");
   display.drawString(0, 32, local_temp_title);
 
   String local_temp_vol = String("= ") + (getLocalTemperature() != DBL_MIN ? String(getLocalTemperature(), 1) : String("?")) + "°";
@@ -729,7 +730,7 @@ void display_local_humidity() {
   display.setFont(ArialMT_Plain_16);
   display.setTextAlignment(TEXT_ALIGN_LEFT);
 
-  String local_hum_title = String("Local    h ");
+  String local_hum_title = String("Local      h ");
   display.drawString(0, 48, local_hum_title);
 
   String local_hum_vol = String("= ") + (getLocalHumidity() != DBL_MIN ? String(getLocalHumidity(), 0) : String("?")) + "%";
@@ -747,6 +748,11 @@ void displaySetup() {
   // display.setFont(ArialMT_Plain_24);
   // display.setTextAlignment(TEXT_ALIGN_CENTER);
   // display.drawString(64, 17, "Thermostat");
+    display_wifi_status(false);
+    display_mqtt_status(false);
+    display_server_status(false);
+    display_remote_temp_status(false);
+    display_remote_temp();
 
     espurnaRegisterLoop(displayLoop);
 }
