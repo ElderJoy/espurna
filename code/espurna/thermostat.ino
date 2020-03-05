@@ -265,7 +265,7 @@ void commonSetup() {
   DEBUG_MSG_P(PSTR("[THERMOSTAT] _temp_range.min = %d\n"), _temp_range.min);
   DEBUG_MSG_P(PSTR("[THERMOSTAT] _temp_range.max = %d\n"), _temp_range.max);
 
-  _thermostat.remote_sensor_name = getSetting(NAME_REMOTE_SENSOR_NAME);
+  _thermostat.remote_sensor_name = getSetting(NAME_REMOTE_SENSOR_NAME, THERMOSTAT_REMOTE_SENSOR_NAME);
   thermostat_remote_sensor_topic = _thermostat.remote_sensor_name + String("/") + String(MQTT_TOPIC_JSON);
 
   _thermostat_remote_temp_max_wait = getSetting(NAME_REMOTE_TEMP_MAX_WAIT, THERMOSTAT_REMOTE_TEMP_MAX_WAIT) * MILLIS_IN_SEC;

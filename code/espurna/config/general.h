@@ -237,6 +237,10 @@
 #define THERMOSTAT_SERVER_LOST_INTERVAL  120000 //server means lost after 2 min from last response
 #define THERMOSTAT_REMOTE_TEMP_MAX_WAIT     120 // 2 min
 
+#ifndef THERMOSTAT_REMOTE_SENSOR_NAME
+#define THERMOSTAT_REMOTE_SENSOR_NAME        "" // Get remote temp(hum) from mqtt topic of this device
+#endif
+
 //------------------------------------------------------------------------------
 // HEARTBEAT
 //------------------------------------------------------------------------------
