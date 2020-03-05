@@ -18,6 +18,7 @@ Updated secure client support by Niek van der Maas < mail at niekvandermaas dot 
 #include "system.h"
 #include "mqtt.h"
 #include "ntp.h"
+#include "rpc.h"
 #include "ws.h"
 
 #include "libs/SecureClientHelpers.h"
@@ -187,6 +188,7 @@ bool _mqttConnectSyncClient(bool secure = false) {
     #if MQTT_LIBRARY == MQTT_LIBRARY_ARDUINOMQTT
         _mqtt.begin(_mqtt_server.c_str(), _mqtt_port, _mqttGetClient(secure));
         _mqtt.setWill(_mqtt_will.c_str(), _mqtt_payload_offline.c_str(), _mqtt_retain, _mqtt_qos);
+        _mqtt.setKeepAlive(_mqtt_keepalive);
         result = _mqtt.connect(_mqtt_clientid.c_str(), _mqtt_user.c_str(), _mqtt_pass.c_str());
     #elif MQTT_LIBRARY == MQTT_LIBRARY_PUBSUBCLIENT
         _mqtt.setClient(_mqttGetClient(secure));
@@ -522,9 +524,7 @@ void _mqttCallback(unsigned int type, const char * topic, const char * payload) 
 
         // Actions
         if (t.equals(MQTT_TOPIC_ACTION)) {
-            if (strcmp(payload, MQTT_ACTION_RESET) == 0) {
-                deferredReset(100, CUSTOM_RESET_MQTT);
-            }
+            rpcHandleAction(payload);
         }
 
     }
