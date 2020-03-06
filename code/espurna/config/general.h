@@ -234,6 +234,10 @@
 #define THERMOSTAT_DISPLAY_SUPPORT  0
 #endif
 
+#ifndef THERMOSTAT_DISPLAY_OFF_INTERVAL         // Interval in seconds after which display will be switched off
+#define THERMOSTAT_DISPLAY_OFF_INTERVAL  0      // This will prevent it from burnout
+#endif                                          // 0 - newer switch display off
+
 #define THERMOSTAT_SERVER_LOST_INTERVAL  120000 //server means lost after 2 min from last response
 #define THERMOSTAT_REMOTE_TEMP_MAX_WAIT     120 // 2 min
 

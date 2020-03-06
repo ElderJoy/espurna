@@ -276,7 +276,7 @@ void commonSetup() {
 }
 
 //------------------------------------------------------------------------------
-void thermostatConfigure() {
+void thermostatSetup() {
   commonSetup();
 
   _thermostat.temperature_source = temp_none;
@@ -287,6 +287,21 @@ void thermostatConfigure() {
   _thermostat_burn_prev_month = getSetting(NAME_BURN_PREV_MONTH, 0);
   _thermostat_burn_day        = getSetting(NAME_BURN_DAY, 0);
   _thermostat_burn_month      = getSetting(NAME_BURN_MONTH, 0);
+
+  #if MQTT_SUPPORT
+    thermostatSetupMQTT();
+  #endif
+
+  // Websockets
+  #if WEB_SUPPORT
+      wsRegister()
+          .onConnected(_thermostatWebSocketOnConnected)
+          .onKeyCheck(_thermostatWebSocketOnKeyCheck)
+          .onAction(_thermostatWebSocketOnAction);
+  #endif
+
+  espurnaRegisterLoop(thermostatLoop);
+  espurnaRegisterReload(_thermostatReload);
 }
 
 //------------------------------------------------------------------------------
@@ -353,26 +368,6 @@ void _thermostatWebSocketOnAction(uint32_t client_id, const char * action, JsonO
     if (strcmp(action, "thermostat_reset_counters") == 0) resetBurnCounters();
 }
 #endif
-
-//------------------------------------------------------------------------------
-void thermostatSetup() {
-  thermostatConfigure();
-
-  #if MQTT_SUPPORT
-    thermostatSetupMQTT();
-  #endif
-
-  // Websockets
-  #if WEB_SUPPORT
-      wsRegister()
-          .onConnected(_thermostatWebSocketOnConnected)
-          .onKeyCheck(_thermostatWebSocketOnKeyCheck)
-          .onAction(_thermostatWebSocketOnAction);
-  #endif
-
-  espurnaRegisterLoop(thermostatLoop);
-  espurnaRegisterReload(_thermostatReload);
-}
 
 //------------------------------------------------------------------------------
 void sendTempRangeRequest() {
@@ -539,7 +534,7 @@ void thermostatLoop(void) {
     _thermostat.last_update = millis();
     updateCounters();
     unsigned int last_temp_src = _thermostat.temperature_source;
-    if (_remote_temp.last_update != 0 && millis() - _remote_temp.last_update < _thermostat_remote_temp_max_wait) {
+    if (millis() - _remote_temp.last_update < _thermostat_remote_temp_max_wait) {
       // we have remote temp
       _thermostat.temperature_source = temp_remote;
       DEBUG_MSG_P(PSTR("[THERMOSTAT] setup thermostat by remote temperature\n"));
@@ -639,12 +634,32 @@ SSD1306  display(0x3c, 1, 3);
 
 unsigned long _local_temp_last_update = 0xFFFF;
 unsigned long _local_hum_last_update = 0xFFFF;
+unsigned long _thermostat_display_off_interval = THERMOSTAT_DISPLAY_OFF_INTERVAL * MILLIS_IN_SEC;
+unsigned long _thermostat_display_on_time = INT_MAX;
+bool _thermostat_display_is_on = true;
 bool _display_wifi_status   = true;
 bool _display_mqtt_status   = true;
 bool _display_server_status = true;
 bool _display_remote_temp_status = true;
-bool _display_need_refresh  = false;
+bool _display_need_refresh  = true;
 bool _temp_range_need_update = true;
+
+
+//------------------------------------------------------------------------------
+void displayOn() {
+  DEBUG_MSG_P(PSTR("[THERMOSTAT] Display On!\n"));
+  _thermostat_display_on_time = millis();
+  _thermostat_display_is_on = true;
+  _display_need_refresh = true;
+  display_wifi_status(_display_wifi_status);
+  display_mqtt_status(_display_mqtt_status);
+  display_server_status(_display_server_status);
+  display_remote_temp_status(_display_remote_temp_status);
+  _temp_range.need_display_update = true;
+  _remote_temp.need_display_update = true;
+  display_local_temp();
+  display_local_humidity();
+}
 //------------------------------------------------------------------------------
 void drawIco(int16_t x, int16_t y, const char *ico, bool on = true) {
   display.drawIco16x16(x, y, ico, !on);
@@ -745,21 +760,25 @@ void displaySetup() {
   display.init();
   display.flipScreenVertically();
 
-  // display.setFont(ArialMT_Plain_24);
-  // display.setTextAlignment(TEXT_ALIGN_CENTER);
-  // display.drawString(64, 17, "Thermostat");
-    display_wifi_status(false);
-    display_mqtt_status(false);
-    display_server_status(false);
-    display_remote_temp_status(false);
-    display_remote_temp();
+  display_wifi_status(false);
+  display_mqtt_status(false);
+  display_server_status(false);
+  display_remote_temp_status(false);
+  display_remote_temp();
 
-    espurnaRegisterLoop(displayLoop);
+  espurnaRegisterLoop(displayLoop);
 }
 
 //------------------------------------------------------------------------------
 void displayLoop() {
-  _display_need_refresh = false;
+  if (THERMOSTAT_DISPLAY_OFF_INTERVAL > 0 && millis() - _thermostat_display_on_time > _thermostat_display_off_interval) {
+    if (_thermostat_display_is_on) {
+      DEBUG_MSG_P(PSTR("[THERMOSTAT] Display Off!\n"));
+      _thermostat_display_is_on = false;
+      display.resetDisplay();
+    }
+    return;
+  }
 
   //------------------------------------------------------------------------------
   // Indicators
@@ -829,6 +848,7 @@ void displayLoop() {
   if (_display_need_refresh) {
     yield();
     display.display();
+    _display_need_refresh = false;
   }
 }
 
