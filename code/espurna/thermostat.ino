@@ -54,6 +54,8 @@ const char* NAME_OPERATION_MODE         = "thermostatOperationMode";
 #define THERMOSTAT_ALONE_OFF_TIME               55 // 55 min
 #define THERMOSTAT_MAX_ON_TIME                  30 // 30 min
 #define THERMOSTAT_MIN_OFF_TIME                 10 // 10 min
+#define THERMOSTAT_ENABLED_BY_DEFAULT         true
+#define THERMOSTAT_MODE_COOLER_BY_DEFAULT     false
 
 unsigned long _thermostat_remote_temp_max_wait  = THERMOSTAT_REMOTE_TEMP_MAX_WAIT * MILLIS_IN_SEC;
 unsigned long _thermostat_alone_on_time   = THERMOSTAT_ALONE_ON_TIME  * MILLIS_IN_MIN;
@@ -81,7 +83,7 @@ struct temp_range_t {
   int max = THERMOSTAT_TEMP_RANGE_MAX;
   unsigned long last_update = 0;
   unsigned long ask_time = 0;
-  unsigned int  ask_interval = 0;
+  unsigned long  ask_interval = ASK_TEMP_RANGE_INTERVAL_INITIAL;
   bool need_display_update = true;
 };
 temp_range_t _temp_range;
@@ -167,8 +169,6 @@ void thermostatMQTTCallback(unsigned int type, const char * topic, const char * 
     if (type == MQTT_CONNECT_EVENT) {
       mqttSubscribeRaw(thermostat_remote_sensor_topic.c_str());
       mqttSubscribe(MQTT_TOPIC_HOLD_TEMP);
-      _temp_range.ask_interval = ASK_TEMP_RANGE_INTERVAL_INITIAL;
-      _temp_range.ask_time = millis();
     }
 
     if (type == MQTT_MESSAGE_EVENT) {
@@ -253,10 +253,10 @@ void notifyRangeChanged(bool min) {
 // Setup
 //------------------------------------------------------------------------------
 void commonSetup() {
-  _thermostat_enabled     = getSetting(NAME_THERMOSTAT_ENABLED, false);
+  _thermostat_enabled     = getSetting(NAME_THERMOSTAT_ENABLED, THERMOSTAT_ENABLED_BY_DEFAULT);
   DEBUG_MSG_P(PSTR("[THERMOSTAT] _thermostat_enabled = %d\n"), _thermostat_enabled);
 
-  _thermostat_mode_cooler = getSetting(NAME_THERMOSTAT_MODE, false);
+  _thermostat_mode_cooler = getSetting(NAME_THERMOSTAT_MODE, THERMOSTAT_MODE_COOLER_BY_DEFAULT);
   DEBUG_MSG_P(PSTR("[THERMOSTAT] _thermostat_mode_cooler = %d\n"), _thermostat_mode_cooler);
   
   _temp_range.min         = getSetting(NAME_TEMP_RANGE_MIN, THERMOSTAT_TEMP_RANGE_MIN);
@@ -643,22 +643,6 @@ bool _display_remote_temp_status = true;
 bool _display_need_refresh  = true;
 bool _temp_range_need_update = true;
 
-
-//------------------------------------------------------------------------------
-void displayOn() {
-  DEBUG_MSG_P(PSTR("[THERMOSTAT] Display is On.\n"));
-  _thermostat_display_on_time = millis();
-  _thermostat_display_is_on = true;
-  _display_need_refresh = true;
-  display_wifi_status(_display_wifi_status);
-  display_mqtt_status(_display_mqtt_status);
-  display_server_status(_display_server_status);
-  display_remote_temp_status(_display_remote_temp_status);
-  _temp_range.need_display_update = true;
-  _remote_temp.need_display_update = true;
-  display_local_temp();
-  display_local_humidity();
-}
 //------------------------------------------------------------------------------
 void drawIco(int16_t x, int16_t y, const char *ico, bool on = true) {
   display.drawIco16x16(x, y, ico, !on);
@@ -752,6 +736,23 @@ void display_local_humidity() {
 
   _display_need_refresh = true;
 }
+
+//------------------------------------------------------------------------------
+void displayOn() {
+  DEBUG_MSG_P(PSTR("[THERMOSTAT] Display is On.\n"));
+  _thermostat_display_on_time = millis();
+  _thermostat_display_is_on = true;
+  _display_need_refresh = true;
+  display_wifi_status(_display_wifi_status);
+  display_mqtt_status(_display_mqtt_status);
+  display_server_status(_display_server_status);
+  display_remote_temp_status(_display_remote_temp_status);
+  _temp_range.need_display_update = true;
+  _remote_temp.need_display_update = true;
+  display_local_temp();
+  display_local_humidity();
+}
+
 //------------------------------------------------------------------------------
 // Setup
 //------------------------------------------------------------------------------
@@ -759,11 +760,7 @@ void displaySetup() {
   display.init();
   display.flipScreenVertically();
 
-  display_wifi_status(false);
-  display_mqtt_status(false);
-  display_server_status(false);
-  display_remote_temp_status(false);
-  display_remote_temp();
+  displayOn();
 
   espurnaRegisterLoop(displayLoop);
 }
