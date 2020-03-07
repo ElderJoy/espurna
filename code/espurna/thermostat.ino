@@ -9,7 +9,6 @@ Copyright (C) 2017 by Dmitry Blinov <dblinov76 at gmail dot com>
 #if THERMOSTAT_SUPPORT
 
 #include <float.h>
-#include <limits.h>
 
 #include "ntp.h"
 #include "relay.h"
@@ -72,7 +71,7 @@ unsigned int  _thermostat_burn_month      = 0;
 
 struct temp_t {
   float temp;
-  unsigned long last_update = INT_MIN;
+  unsigned long last_update = 0;
   bool need_display_update = false;
 };
 temp_t _remote_temp;
@@ -80,7 +79,7 @@ temp_t _remote_temp;
 struct temp_range_t {
   int min = THERMOSTAT_TEMP_RANGE_MIN;
   int max = THERMOSTAT_TEMP_RANGE_MAX;
-  unsigned long last_update = INT_MIN;
+  unsigned long last_update = 0;
   unsigned long ask_time = 0;
   unsigned int  ask_interval = 0;
   bool need_display_update = true;
@@ -534,7 +533,7 @@ void thermostatLoop(void) {
     _thermostat.last_update = millis();
     updateCounters();
     unsigned int last_temp_src = _thermostat.temperature_source;
-    if (millis() - _remote_temp.last_update < _thermostat_remote_temp_max_wait) {
+    if (_remote_temp.last_update != 0 && millis() - _remote_temp.last_update < _thermostat_remote_temp_max_wait) {
       // we have remote temp
       _thermostat.temperature_source = temp_remote;
       DEBUG_MSG_P(PSTR("[THERMOSTAT] setup thermostat by remote temperature\n"));
@@ -635,7 +634,7 @@ SSD1306  display(0x3c, 1, 3);
 unsigned long _local_temp_last_update = 0xFFFF;
 unsigned long _local_hum_last_update = 0xFFFF;
 unsigned long _thermostat_display_off_interval = THERMOSTAT_DISPLAY_OFF_INTERVAL * MILLIS_IN_SEC;
-unsigned long _thermostat_display_on_time = INT_MAX;
+unsigned long _thermostat_display_on_time = millis();
 bool _thermostat_display_is_on = true;
 bool _display_wifi_status   = true;
 bool _display_mqtt_status   = true;
@@ -647,7 +646,7 @@ bool _temp_range_need_update = true;
 
 //------------------------------------------------------------------------------
 void displayOn() {
-  DEBUG_MSG_P(PSTR("[THERMOSTAT] Display On!\n"));
+  DEBUG_MSG_P(PSTR("[THERMOSTAT] Display is On.\n"));
   _thermostat_display_on_time = millis();
   _thermostat_display_is_on = true;
   _display_need_refresh = true;
@@ -773,7 +772,7 @@ void displaySetup() {
 void displayLoop() {
   if (THERMOSTAT_DISPLAY_OFF_INTERVAL > 0 && millis() - _thermostat_display_on_time > _thermostat_display_off_interval) {
     if (_thermostat_display_is_on) {
-      DEBUG_MSG_P(PSTR("[THERMOSTAT] Display Off!\n"));
+      DEBUG_MSG_P(PSTR("[THERMOSTAT] Display Off by timeout\n"));
       _thermostat_display_is_on = false;
       display.resetDisplay();
     }
@@ -797,14 +796,14 @@ void displayLoop() {
     display_mqtt_status(false);
   }
 
-  if (millis() - _temp_range.last_update < THERMOSTAT_SERVER_LOST_INTERVAL) {
+  if (_temp_range.last_update != 0 && millis() - _temp_range.last_update < THERMOSTAT_SERVER_LOST_INTERVAL) {
     if (!_display_server_status)
       display_server_status(true);
   } else if (_display_server_status) {
     display_server_status(false);
   }
 
-  if (millis() - _remote_temp.last_update < _thermostat_remote_temp_max_wait) {
+  if (_remote_temp.last_update != 0 && millis() - _remote_temp.last_update < _thermostat_remote_temp_max_wait) {
     if (!_display_remote_temp_status)
       display_remote_temp_status(true);
   } else if (_display_remote_temp_status) {
